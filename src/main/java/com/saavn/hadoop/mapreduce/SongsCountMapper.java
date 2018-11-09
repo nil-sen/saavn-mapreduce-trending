@@ -27,6 +27,7 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
 	private static final String TRENDING_DATE = "trending.date";
 	
 	private Date trendingDate = null; 
+	private Date trendingEndDate = null; 
     private DateFormat dateFormat = new SimpleDateFormat("yyyy-mm-dd");
     
 	@Override
@@ -34,6 +35,7 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
         try {
         	trendingDate = dateFormat.parse(context.getConfiguration().get(TRENDING_DATE));
         	trendingDate = TrendingSongsUtil.addDays(trendingDate,-1);	
+        	trendingEndDate = TrendingSongsUtil.addDays(trendingDate,7);
     	} catch (ParseException e) {
     		e.printStackTrace();
     	}
@@ -65,12 +67,14 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
 	               		e.printStackTrace();
 	               	}
                    
-                    // consider only last 4 hours of day for trending
-                    if((recordDate != null && recordDate.compareTo(trendingDate) == 0) 
-                    		&& (hour != null && Integer.parseInt(hour) >= 1 && Integer.parseInt(hour) <= 24)) { 
+                    // consider entire 24 hours of day for trending
+                    if((recordDate != null && 
+                    		(recordDate.compareTo(trendingDate) == 0 
+                    		|| (recordDate.after(trendingDate) && recordDate.before(trendingEndDate)))) 
+                    		&& (hour != null && Integer.parseInt(hour) >= 0 && Integer.parseInt(hour) <= 23)) { 
 	                   	try {
 	                   		 // Output SongID + count = 1
-	                   		context.write(new Text(songID.trim()), new IntWritable(1));
+	                   		context.write(new Text(songID.trim() + "|" + date), new IntWritable(1));
 	                   	} catch (InterruptedException e) {
 	                   		logger.error("SongsCountMapper.map() context.write() failed " + songID + "|" + date);
 	                   		e.printStackTrace();

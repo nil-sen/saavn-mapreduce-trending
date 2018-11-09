@@ -4,6 +4,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -16,11 +17,17 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+
+import com.saavn.hadoop.mapreduce.DatePartitioner;
+import com.saavn.hadoop.mapreduce.DescendingComparator;
 import com.saavn.hadoop.mapreduce.SongsCountMapper;
 import com.saavn.hadoop.mapreduce.SongsCountPartitioner;
 import com.saavn.hadoop.mapreduce.SongsCountReducer;
 import com.saavn.hadoop.mapreduce.TrendingSongsMapper;
+import com.saavn.hadoop.mapreduce.TrendingSongsMapper2;
 import com.saavn.hadoop.mapreduce.TrendingSongsReducer;
+import com.saavn.hadoop.mapreduce.TrendingSongsReducer2;
+import com.saavn.hadoop.mapreduce.TrendingSongsReducer3;
 
 
 /**
@@ -88,13 +95,15 @@ public class TrendingSongsDriver extends Configured implements Tool {
 		FileInputFormat.addInputPath(job2, songCountPath);
 		FileOutputFormat.setOutputPath(job2, topSongPath);
 
-		job2.setNumReduceTasks(1);
+		job2.setNumReduceTasks(7);
 
 		////////////////////////////////
-		job2.setMapperClass(TrendingSongsMapper.class);
-		job2.setReducerClass(TrendingSongsReducer.class);
+		job2.setMapperClass(TrendingSongsMapper2.class);
+		job2.setPartitionerClass(DatePartitioner.class);
+		job2.setReducerClass(TrendingSongsReducer3.class);
+		//job2.setSortComparatorClass(LongWritable.DecreasingComparator.class);
 
-		job2.setMapOutputKeyClass(NullWritable.class);
+		job2.setMapOutputKeyClass(Text.class);
 		job2.setMapOutputValueClass(Text.class);
 		job2.setOutputKeyClass(NullWritable.class);
 		job2.setOutputValueClass(Text.class);
