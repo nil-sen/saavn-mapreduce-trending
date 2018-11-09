@@ -110,7 +110,7 @@ public class TrendingSongsDriver extends Configured implements Tool {
 		FileOutputFormat.setOutputPath(job2, topSongPath);
 
 		// set number of reduce tasks equal to number of dates which is number of partitions
-		// as defined by custome Date Partioner taking into account trending start day and trending end day
+		// as defined by custom Date Partioner taking into account trending start day and trending end day
 		job2.setNumReduceTasks(getReducerTaskNumber());
 				
 		job2.setMapperClass(TrendingSongsMapper.class);

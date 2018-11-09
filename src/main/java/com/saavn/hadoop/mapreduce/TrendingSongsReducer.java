@@ -13,8 +13,10 @@ import org.slf4j.LoggerFactory;
 public class TrendingSongsReducer extends Reducer<Text, Text, NullWritable, Text> {
 
 	private static final Logger logger = LoggerFactory.getLogger(TrendingSongsReducer.class);
+	
 
 	private TreeMap<Integer, Text> recordTreeMap = new TreeMap<Integer, Text>();
+	
 
 	private static final String TOP_N = "top.n";
 	private static final String TAB = "\t";
@@ -34,7 +36,10 @@ public class TrendingSongsReducer extends Reducer<Text, Text, NullWritable, Text
 		String[] fields = key.toString().split(TAB);
 
 		try {
-			recordTreeMap.put(Integer.parseInt(fields[0]), new Text(fields[0] + TAB + fields[1]));
+			// output count plus song ID			
+			//recordTreeMap.put(Integer.parseInt(fields[0]), new Text(fields[0] + TAB + fields[1]));
+			// output only song ID			
+			recordTreeMap.put(Integer.parseInt(fields[0]), new Text(fields[1]));
 		}catch(NumberFormatException e) {
 			logger.error("TrendingSongsReducer.reduce() Integer.parseInt() failed :[" + fields[0] + PIPE + fields[1] + "]"
 					+ e.getMessage());
