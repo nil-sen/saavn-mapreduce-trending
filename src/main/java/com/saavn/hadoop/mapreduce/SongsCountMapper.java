@@ -14,7 +14,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.saavn.hadoop.util.TrendingSongsUtil;
+import com.saavn.hadoop.util.DateUtil;
 
 
 /**
@@ -23,19 +23,25 @@ import com.saavn.hadoop.util.TrendingSongsUtil;
 public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
 
 	private static final Logger logger = LoggerFactory.getLogger(SongsCountMapper.class);
-
-	private static final String TRENDING_DATE = "trending.date";
+	private static final IntWritable ONE = new IntWritable(1);
+	private static final Text KEY = new Text();
+    
 	
-	private Date trendingDate = null; 
+	private static final String TRENDING_START_DATE = "trending.start.date";
+	private static final String TRENDING_END_DATE = "trending.end.date";
+	private static final String PIPE = "|";
+	private static final String DATE_FORMAT = "yyyy-mm-dd";
+	
+	private Date trendingStartDate = null; 
 	private Date trendingEndDate = null; 
-    private DateFormat dateFormat = new SimpleDateFormat("yyyy-mm-dd");
+    private DateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
     
 	@Override
     public void setup(Context context) {		
         try {
-        	trendingDate = dateFormat.parse(context.getConfiguration().get(TRENDING_DATE));
-        	trendingDate = TrendingSongsUtil.addDays(trendingDate,-1);	
-        	trendingEndDate = TrendingSongsUtil.addDays(trendingDate,7);
+        	trendingStartDate = dateFormat.parse(context.getConfiguration().get(TRENDING_START_DATE));
+        	trendingStartDate = DateUtil.addDays(trendingStartDate,-1);	
+        	trendingEndDate = dateFormat.parse(context.getConfiguration().get(TRENDING_END_DATE));        		
     	} catch (ParseException e) {
     		e.printStackTrace();
     	}
@@ -47,7 +53,7 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
     public void map(LongWritable key, Text value, Context context)
             throws IOException {
 
-        // Parse line and get songID, userID, etc
+        // Parse line and get songID, hour, date, etc
         String[] fields = value.toString().split(",");
         if (fields.length >= 5) {
         	String songID = fields[0];
@@ -69,14 +75,15 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
                    
                     // consider entire 24 hours of day for trending
                     if((recordDate != null && 
-                    		(recordDate.compareTo(trendingDate) == 0 
-                    		|| (recordDate.after(trendingDate) && recordDate.before(trendingEndDate)))) 
+                    		(recordDate.compareTo(trendingStartDate) == 0 
+                    		|| (recordDate.after(trendingStartDate) && recordDate.before(trendingEndDate)))) 
                     		&& (hour != null && Integer.parseInt(hour) >= 0 && Integer.parseInt(hour) <= 23)) { 
 	                   	try {
-	                   		 // Output SongID + count = 1
-	                   		context.write(new Text(songID.trim() + "|" + date), new IntWritable(1));
+	                   		 // Output key => SongID + pipe + date , value => count = 1
+	                   		KEY.set(songID.trim() + PIPE + date);
+	                   		context.write(KEY, ONE);
 	                   	} catch (InterruptedException e) {
-	                   		logger.error("SongsCountMapper.map() context.write() failed " + songID + "|" + date);
+	                   		logger.error("SongsCountMapper.map() context.write() failed " + songID + PIPE + date);
 	                   		e.printStackTrace();
 	                   	}	                   
 	               	}

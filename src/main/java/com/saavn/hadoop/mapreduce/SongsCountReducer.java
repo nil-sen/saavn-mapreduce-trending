@@ -16,7 +16,8 @@ import java.io.IOException;
 public class SongsCountReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
 
 	private static final Logger logger = LoggerFactory.getLogger(SongsCountReducer.class);
-
+	private static final IntWritable SUM = new IntWritable();
+		
     @Override
     public void reduce(Text key, Iterable<IntWritable> values, Context context)
             throws IOException {
@@ -26,9 +27,9 @@ public class SongsCountReducer extends Reducer<Text, IntWritable, Text, IntWrita
             count = count + value.get();
         }
 
-        
         try {
-			context.write(key, new IntWritable(count));
+        	SUM.set(count);
+			context.write(key, SUM);
 		} catch (InterruptedException e) {
 			logger.error("SongsCountReducer.reduce() context.write() failed : " + e.getMessage());
 			e.printStackTrace();

@@ -1,10 +1,14 @@
 package com.saavn.hadoop;
 
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -17,31 +21,41 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.saavn.hadoop.mapreduce.DatePartitioner;
-import com.saavn.hadoop.mapreduce.DescendingComparator;
 import com.saavn.hadoop.mapreduce.SongsCountMapper;
-import com.saavn.hadoop.mapreduce.SongsCountPartitioner;
+import com.saavn.hadoop.mapreduce.CountPartitioner;
 import com.saavn.hadoop.mapreduce.SongsCountReducer;
 import com.saavn.hadoop.mapreduce.TrendingSongsMapper;
-import com.saavn.hadoop.mapreduce.TrendingSongsMapper2;
 import com.saavn.hadoop.mapreduce.TrendingSongsReducer;
-import com.saavn.hadoop.mapreduce.TrendingSongsReducer2;
-import com.saavn.hadoop.mapreduce.TrendingSongsReducer3;
+import com.saavn.hadoop.util.DateUtil;
 
 
 /**
  * Trending Songs of nth day is defined by songs streamed for 24 hours on
  * (n-1)th day Input parameters trending.date (nth day) and top.n (count 100) We
  * need two jobs here: - one to count the songs streamed on (n-1)th day based on
- * songID -- used map and reduce job alongwith combiner and partitioner similar
+ * songID pipe date -- used map and reduce job alongwith combiner and partitioner similar
  * to word count job - one to sort above songs data (top.n) -- used map and
- * reduce job with treemap 
+ * reduce job with treemap alongwith partitioner for different dates
  */
 public class TrendingSongsDriver extends Configured implements Tool {
+	
+	private static final Logger logger = LoggerFactory.getLogger(TrendingSongsDriver.class);
 
+	private static final String TRENDING_START_DATE = "trending.start.date";
+	private static final String TRENDING_END_DATE = "trending.end.date";
+	private static final String DATE_FORMAT = "yyyy-mm-dd";
+
+	private Date trendingStartDate = null;
+	private Date trendingEndDate = null;
+	private DateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
+	
+	
 	public static String usage() {
-		return "usage : <dataDir> <outputDir> -D top.n=<topNCount>  -D trending.date=<TRENDING_DATE> ";
+		return "usage : <dataDir> <outputDir> -D top.n=<topNCount>  -D trending.start.date=<TRENDING_START_DATE>   -D trending.end.date=<TRENDING_END_DATE>";
 	}
 
 	public static void main(String[] args) throws Exception {
@@ -63,7 +77,7 @@ public class TrendingSongsDriver extends Configured implements Tool {
 
 		Configuration conf1 = this.getConf();
 
-		Job job1 = Job.getInstance(conf1, jobName + "_1");
+		Job job1 = Job.getInstance(conf1, jobName + "_job1");
 		job1.setJarByClass(TrendingSongsDriver.class);
 
 		job1.setInputFormatClass(TextInputFormat.class);
@@ -76,9 +90,9 @@ public class TrendingSongsDriver extends Configured implements Tool {
 		job1.setCombinerClass(SongsCountReducer.class);
 		job1.setReducerClass(SongsCountReducer.class);
 
-		// No need only 1 reducer since we supply partitioner
+		// we supply partitioner
 
-		job1.setPartitionerClass(SongsCountPartitioner.class);
+		job1.setPartitionerClass(CountPartitioner.class);
 
 		job1.setMapOutputKeyClass(Text.class);
 		job1.setMapOutputValueClass(IntWritable.class);
@@ -87,7 +101,7 @@ public class TrendingSongsDriver extends Configured implements Tool {
 
 		Configuration conf2 = getConf();
 
-		Job job2 = Job.getInstance(conf2, jobName + "_2");
+		Job job2 = Job.getInstance(conf2, jobName + "_job2");
 		job2.setJarByClass(TrendingSongsDriver.class);
 
 		job2.setInputFormatClass(KeyValueTextInputFormat.class);
@@ -95,14 +109,14 @@ public class TrendingSongsDriver extends Configured implements Tool {
 		FileInputFormat.addInputPath(job2, songCountPath);
 		FileOutputFormat.setOutputPath(job2, topSongPath);
 
-		job2.setNumReduceTasks(7);
-
-		////////////////////////////////
-		job2.setMapperClass(TrendingSongsMapper2.class);
+		// set number of reduce tasks equal to number of dates which is number of partitions
+		// as defined by custome Date Partioner taking into account trending start day and trending end day
+		job2.setNumReduceTasks(getReducerTaskNumber());
+				
+		job2.setMapperClass(TrendingSongsMapper.class);
 		job2.setPartitionerClass(DatePartitioner.class);
-		job2.setReducerClass(TrendingSongsReducer3.class);
-		//job2.setSortComparatorClass(LongWritable.DecreasingComparator.class);
-
+		job2.setReducerClass(TrendingSongsReducer.class);
+		
 		job2.setMapOutputKeyClass(Text.class);
 		job2.setMapOutputValueClass(Text.class);
 		job2.setOutputKeyClass(NullWritable.class);
@@ -129,6 +143,7 @@ public class TrendingSongsDriver extends Configured implements Tool {
 			System.out.println("Jobs in running state: " + jobControl.getRunningJobList().size());
 			System.out.println("Jobs in success state: " + jobControl.getSuccessfulJobList().size());
 			System.out.println("Jobs in failed state: " + jobControl.getFailedJobList().size());
+			System.out.println("Sleep for 30 seconds");
 			try {
 				Thread.sleep(30000);
 			} catch (Exception e) {
@@ -136,11 +151,40 @@ public class TrendingSongsDriver extends Configured implements Tool {
 			}
 
 		}
-		System.out.println("done");
 		jobControl.stop();
+		System.out.println("Jobs in waiting state: " + jobControl.getWaitingJobList().size());
+		System.out.println("Jobs in ready state: " + jobControl.getReadyJobsList().size());
+		System.out.println("Jobs in running state: " + jobControl.getRunningJobList().size());
+		System.out.println("Jobs in success state: " + jobControl.getSuccessfulJobList().size());
+		System.out.println("Jobs in failed state: " + jobControl.getFailedJobList().size());
+		System.out.println("Job done");
+		
 
 		System.exit(0);
 		return (job1.waitForCompletion(true) ? 0 : 1);
 
+	}
+
+	
+	
+	private int getReducerTaskNumber() {
+		int reduceTaskNumber = 0;
+		
+		try {
+			trendingStartDate = dateFormat.parse(this.getConf().get(TRENDING_START_DATE));
+			trendingStartDate = DateUtil.addDays(trendingStartDate, -1);
+			trendingEndDate = dateFormat.parse(this.getConf().get(TRENDING_END_DATE));
+		} catch (ParseException e) {
+			logger.error("TrendingSongsDriver.setNumReduceTasks() dateFormat.parse() failed " + e.getMessage());
+			e.printStackTrace();
+		}
+
+		while (trendingStartDate.before(trendingEndDate)) {
+			reduceTaskNumber = reduceTaskNumber + 1;
+			trendingStartDate = DateUtil.addDays(trendingStartDate,1);
+		}
+		
+		return reduceTaskNumber > 0 ? reduceTaskNumber : 1;
+		
 	}
 }

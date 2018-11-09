@@ -2,7 +2,7 @@ package com.saavn.hadoop.util;
 import java.util.Calendar;
 import java.util.Date;
 
-public class TrendingSongsUtil {
+public class DateUtil {
 
 	  public static Date addDays(Date date, int days) {
 	      Calendar cal = Calendar.getInstance();
