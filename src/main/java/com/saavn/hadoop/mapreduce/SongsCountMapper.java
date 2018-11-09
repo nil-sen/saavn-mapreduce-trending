@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import com.saavn.hadoop.util.TrendingSongsUtil;
 
+
 /**
  * Created by nsen
  */
@@ -50,7 +51,7 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
         	String songID = fields[0];
             //String userID = fields[1];
             //String timestamp = fields[2];
-            //String hour = fields[3];
+            String hour = fields[3];
             String date = fields[4];
             
             if (songID != null) {
@@ -64,7 +65,9 @@ public class SongsCountMapper extends Mapper<LongWritable, Text, Text, IntWritab
 	               		e.printStackTrace();
 	               	}
                    
-                    if(recordDate != null && recordDate.compareTo(trendingDate) == 0) { 
+                    // consider only last 4 hours of day for trending
+                    if((recordDate != null && recordDate.compareTo(trendingDate) == 0) 
+                    		&& (hour != null && Integer.parseInt(hour) >= 1 && Integer.parseInt(hour) <= 24)) { 
 	                   	try {
 	                   		 // Output SongID + count = 1
 	                   		context.write(new Text(songID.trim()), new IntWritable(1));
