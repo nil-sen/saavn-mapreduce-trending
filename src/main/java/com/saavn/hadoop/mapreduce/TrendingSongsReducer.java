@@ -38,7 +38,7 @@ public class TrendingSongsReducer extends Reducer<Text, Text, NullWritable, Text
 		try {
 			// output count plus song ID			
 			//recordTreeMap.put(Integer.parseInt(fields[0]), new Text(fields[0] + TAB + fields[1]));
-			// output only song ID			
+			// output only song ID as per requirement from upgrad			
 			recordTreeMap.put(Integer.parseInt(fields[0]), new Text(fields[1]));
 		}catch(NumberFormatException e) {
 			logger.error("TrendingSongsReducer.reduce() Integer.parseInt() failed :[" + fields[0] + PIPE + fields[1] + "]"
