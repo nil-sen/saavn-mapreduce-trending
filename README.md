@@ -39,6 +39,7 @@ Algorithm used to arrive at top 100 trending songs for each day 25-31 Dec 2017 :
 15. In Reducer cleanup we are writing treemap in descending order of values with output Nullwritable as key and Text as value (which is songId)
 
 Steps involved to arrive at the output files :
+
 1. Run hadoop jar command to run map reduce jobs
 hadoop jar mapreduce-1.0.0.jar com.saavn.hadoop.TrendingSongsDriver -Dtop.n=100 -Dtrending.start.date=2017-12-25 -Dtrending.end.date=2017-12-31 <INPUT_FILE> <OUTPUT_DIRECTORY>
 where
@@ -47,9 +48,11 @@ trending.start.date is the date starting from trending needs to be calculated e.
 trending.end.date is the date till which trending songs needs to be calculated e.g 2017-12-31
 There will be 2 sub directories created under output directory as
 below
-1) <OUTPUT_DIRECTORY>/count - this will have the output from 1st mapreduce job which will be the input for 2nd mapreduce job
-2) <OUTPUT_DIRECTORY>/topN - this will have the final output (aka 2nd mapreduce job). This will have separate files generated for each day having sorted list of top 100 song Ids separated by newline
+          1) <OUTPUT_DIRECTORY>/count - this will have the output from 1st mapreduce job which will be the input for 2nd mapreduce job
+          2) <OUTPUT_DIRECTORY>/topN - this will have the final output (aka 2nd mapreduce job). This will have separate files generated           for each day having sorted list of top 100 song Ids separated by newline
+
 2. Get all the files from topN sub directory using below command hadoop fs -get <OUTPUT_DIRECTORY>/topN/*
+
 3. Download the above output files in Windows laptop using FileZilla and rename as below
 1) part-r-00000 --> 25.txt
 2) part-r-00001 --> 26.txt
